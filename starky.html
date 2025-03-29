@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STARKY - Beyond Code</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Orbitron', sans-serif;
+            background: #000;
+            color: #fff;
+            overflow: hidden;
+            cursor: none;
+        }
+        #canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+        .content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 3;
+            pointer-events: none;
+            width: 90%;
+        }
+        .name {
+            font-size: clamp(4rem, 12vw, 10rem);
+            font-weight: 900;
+            color: #00ffcc;
+            text-shadow: 0 0 40px #00ffcc, 0 0 80px #00ffcc;
+            transition: transform 0.3s ease, text-shadow 0.3s ease;
+            pointer-events: all;
+        }
+        .name:hover {
+            transform: scale(1.15);
+            text-shadow: 0 0 60px #00ffcc, 0 0 120px #ff00ff;
+        }
+        .title {
+            font-size: clamp(1.5rem, 5vw, 3rem);
+            margin-top: 20px;
+            letter-spacing: clamp(4px, 1vw, 10px);
+            text-transform: uppercase;
+            background: linear-gradient(90deg, #00ffcc, #ff00ff, #00ffcc);
+            background-size: 200%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: gradientShift 5s infinite linear;
+        }
+        .tagline {
+            font-size: clamp(1rem, 3vw, 1.8rem);
+            color: #b0b0b0;
+            margin-top: 15px;
+            opacity: 0.9;
+        }
+        .cursor {
+            position: fixed;
+            width: 25px;
+            height: 25px;
+            border: 2px solid #00ffcc;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 999;
+            transition: all 0.1s ease;
+            box-shadow: 0 0 15px #00ffcc;
+        }
+        .cursor.grow {
+            width: 50px;
+            height: 50px;
+            border: 2px solid #ff00ff;
+            box-shadow: 0 0 30px #ff00ff;
+        }
+        @keyframes gradientShift {
+            0% { background-position: 0%; }
+            100% { background-position: 200%; }
+        }
+        @media (max-width: 768px) {
+            .content {
+                width: 95%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <div class="content">
+        <h1 class="name">STARKY</h1>
+        <p class="title">Web Developer & Programmer</p>
+        <p class="tagline">Master of the Digital Cosmos</p>
+    </div>
+    <div class="cursor"></div>
+
+    <!-- CDN Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.11.4/gsap.min.js"></script>
+    <script>
+        // Three.js Scene Setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('canvas'), alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+        // 3D Globe with Shader
+        const globeGeometry = new THREE.SphereGeometry(15, 64, 64);
+        const globeShader = {
+            uniforms: { time: { value: 0 } },
+            vertexShader: `
+                varying vec2 vUv;
+                void main() {
+                    vUv = uv;
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                }
+            `,
+            fragmentShader: `
+                uniform float time;
+                varying vec2 vUv;
+                void main() {
+                    vec2 uv = vUv;
+                    float glow = sin(time + uv.x * 10.0) * cos(time + uv.y * 10.0);
+                    gl_FragColor = vec4(0.0, 1.0, 0.8, 0.2 + glow * 0.1);
+                }
+            `
+        };
+        const globeMaterial = new THREE.ShaderMaterial({
+            uniforms: globeShader.uniforms,
+            vertexShader: globeShader.vertexShader,
+            fragmentShader: globeShader.fragmentShader,
+            wireframe: true,
+            transparent: true
+        });
+        const globe = new THREE.Mesh(globeGeometry, globeMaterial);
+        scene.add(globe);
+        globe.position.z = -50;
+
+        // Dynamic Particles with Physics
+        const particleCount = window.innerWidth < 768 ? 600 : 1200;
+        const particles = new THREE.BufferGeometry();
+        const positions = new Float32Array(particleCount * 3);
+        const velocities = new Float32Array(particleCount * 3);
+        const colors = new Float32Array(particleCount * 3);
+        for (let i = 0; i < particleCount * 3; i += 3) {
+            positions[i] = (Math.random() - 0.5) * 200;
+            positions[i + 1] = (Math.random() - 0.5) * 200;
+            positions[i + 2] = (Math.random() - 0.5) * 200;
+            velocities[i] = (Math.random() - 0.5) * 0.15;
+            velocities[i + 1] = (Math.random() - 0.5) * 0.15;
+            velocities[i + 2] = (Math.random() - 0.5) * 0.15;
+            colors[i] = Math.random(); colors[i + 1] = 1.0; colors[i + 2] = 0.8;
+        }
+        particles.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        particles.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+        const particleMaterial = new THREE.PointsMaterial({
+            size: window.innerWidth < 768 ? 0.25 : 0.4,
+            vertexColors: true,
+            transparent: true,
+            blending: THREE.AdditiveBlending
+        });
+        const particleSystem = new THREE.Points(particles, particleMaterial);
+        scene.add(particleSystem);
+
+        // Lighting
+        const pointLight = new THREE.PointLight(0x00ffcc, 2, 100);
+        pointLight.position.set(0, 0, 10);
+        scene.add(pointLight);
+
+        camera.position.z = window.innerWidth < 768 ? 25 : 35;
+
+        // Mouse/Touch Interaction
+        let mouseX = 0, mouseY = 0;
+        const updateMouse = (e) => {
+            const x = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+            const y = e.type.includes('touch') ? e.touches[0].clientY : e.clientY;
+            mouseX = (x / window.innerWidth) * 2 - 1;
+            mouseY = -(y / window.innerHeight) * 2 + 1;
+            gsap.to(globe.rotation, { y: mouseX * 0.8, x: mouseY * 0.8, duration: 1 });
+            pointLight.position.x = mouseX * 20;
+            pointLight.position.y = mouseY * 20;
+        };
+        document.addEventListener('mousemove', updateMouse);
+        document.addEventListener('touchmove', updateMouse);
+
+        // Animation Loop
+        let time = 0;
+        function animate() {
+            requestAnimationFrame(animate);
+            time += 0.05;
+            globeShader.uniforms.time.value = time;
+            globe.rotation.y += 0.005;
+
+            const positions = particleSystem.geometry.attributes.position.array;
+            for (let i = 0; i < particleCount * 3; i += 3) {
+                positions[i] += velocities[i] + Math.sin(time + i) * 0.02;
+                positions[i + 1] += velocities[i + 1] + Math.cos(time + i) * 0.02;
+                positions[i + 2] += velocities[i + 2];
+                if (positions[i] > 100 || positions[i] < -100) velocities[i] *= -1;
+                if (positions[i + 1] > 100 || positions[i + 1] < -100) velocities[i + 1] *= -1;
+                if (positions[i + 2] > 100 || positions[i + 2] < -100) velocities[i + 2] *= -1;
+            }
+            particleSystem.geometry.attributes.position.needsUpdate = true;
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // GSAP Animations
+        gsap.from(".name", { opacity: 0, y: -300, duration: 2.5, ease: "bounce.out" });
+        gsap.from(".title", { opacity: 0, scale: 0.2, duration: 2, delay: 1, ease: "elastic.out(1, 0.3)" });
+        gsap.from(".tagline", { opacity: 0, y: 150, duration: 2, delay: 1.5, ease: "power4.out" });
+
+        // Custom Cursor
+        const cursor = document.querySelector('.cursor');
+        const updateCursor = (e) => {
+            const x = e.type.includes('touch') ? e.touches[0].pageX : e.pageX;
+            const y = e.type.includes('touch') ? e.touches[0].pageY : e.pageY;
+            cursor.style.left = x + 'px';
+            cursor.style.top = y + 'px';
+        };
+        document.addEventListener('mousemove', updateCursor);
+        document.addEventListener('touchmove', updateCursor);
+        const nameElement = document.querySelector('.name');
+        nameElement.addEventListener('mouseover', () => {
+            cursor.classList.add('grow');
+            new Audio('https://www.myinstants.com/media/sounds/metal-gear-solid-codec-sound-effect.mp3').play();
+        });
+        nameElement.addEventListener('mouseout', () => cursor.classList.remove('grow'));
+
+        // Resize Handler
+        window.addEventListener('resize', () => {
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            particleMaterial.size = window.innerWidth < 768 ? 0.25 : 0.4;
+            camera.position.z = window.innerWidth < 768 ? 25 : 35;
+        });
+    </script>
+</body>
+</html>
